@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useEffect, useState } from "react";
@@ -12,12 +13,38 @@ export default function ResetPasswordPage() {
   const [validSession, setValidSession] = useState(false);
 
   useEffect(() => {
-    const supabase = createClient();
+    async function verifyRecoveryLink() {
+      const supabase = createClient();
 
-    supabase.auth.getSession().then(({ data, error }) => {
-      setValidSession(!error && !!data.session);
-      setChecking(false);
-    });
+      try {
+        const url = new URL(window.location.href);
+        const code = url.searchParams.get("code");
+
+        if (code) {
+          const { error } = await supabase.auth.exchangeCodeForSession(code);
+
+          if (error) {
+            setValidSession(false);
+            setMessage("Le lien de récupération est invalide ou a expiré. Demandez un nouveau lien.");
+            setChecking(false);
+            return;
+          }
+
+          window.history.replaceState({}, document.title, "/reset-password");
+        }
+
+        const { data, error } = await supabase.auth.getSession();
+
+        setValidSession(!error && !!data.session);
+      } catch {
+        setValidSession(false);
+        setMessage("Impossible de vérifier le lien. Demandez un nouveau lien de récupération.");
+      } finally {
+        setChecking(false);
+      }
+    }
+
+    verifyRecoveryLink();
   }, []);
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -36,31 +63,45 @@ export default function ResetPasswordPage() {
 
     setLoading(true);
 
-    const supabase = createClient();
-    const { error } = await supabase.auth.updateUser({ password });
+    try {
+      const supabase = createClient();
+      const { error } = await supabase.auth.updateUser({ password });
 
-    if (error) {
-      setMessage("Impossible de modifier le mot de passe : " + error.message);
-    } else {
-      await supabase.auth.signOut();
-      setMessage("Mot de passe modifié avec succès. Vous pouvez maintenant vous connecter.");
-      setPassword("");
-      setConfirmPassword("");
+      if (error) {
+        setMessage("Impossible de modifier le mot de passe : " + error.message);
+      } else {
+        await supabase.auth.signOut();
+        setMessage("Mot de passe modifié avec succès. Vous pouvez maintenant vous connecter.");
+        setPassword("");
+        setConfirmPassword("");
+        setValidSession(false);
+      }
+    } catch {
+      setMessage("Une erreur est survenue. Veuillez réessayer.");
+    } finally {
+      setLoading(false);
     }
-
-    setLoading(false);
   }
 
   if (checking) {
-    return <main className="min-h-screen flex items-center justify-center">Vérification du lien...</main>;
+    return (
+      <main className="min-h-screen flex items-center justify-center">
+        Vérification du lien...
+      </main>
+    );
   }
 
   if (!validSession) {
     return (
       <main className="min-h-screen flex items-center justify-center p-6">
-        <div className="w-full max-w-md rounded-xl border p-8">
+        <div className="w-full max-w-md rounded-xl border bg-white p-8">
           <h1 className="text-2xl font-bold mb-4">Lien invalide</h1>
-          <p>Ce lien de récupération est invalide ou a expiré. Demandez un nouveau lien de récupération.</p>
+          <p>
+            {message || "Ce lien de récupération est invalide ou a expiré. Demandez un nouveau lien."}
+          </p>
+          <a href="/login" className="mt-5 inline-block text-orange-600 font-semibold">
+            Retour à la connexion
+          </a>
         </div>
       </main>
     );
@@ -68,7 +109,7 @@ export default function ResetPasswordPage() {
 
   return (
     <main className="min-h-screen flex items-center justify-center p-6">
-      <form onSubmit={handleSubmit} className="w-full max-w-md rounded-xl border p-8 space-y-5">
+      <form onSubmit={handleSubmit} className="w-full max-w-md rounded-xl border bg-white p-8 space-y-5">
         <h1 className="text-2xl font-bold">Nouveau mot de passe</h1>
         <p>Choisissez un nouveau mot de passe pour votre compte Woke Connect.</p>
 
