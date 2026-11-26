@@ -25,7 +25,7 @@ export default function ResetPasswordPage() {
 
           if (error) {
             setValidSession(false);
-            setMessage("Le lien de récupération est invalide ou a expiré. Demandez un nouveau lien.");
+            setMessage("Erreur Supabase : " + error.message);
             setChecking(false);
             return;
           }
