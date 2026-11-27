@@ -23,7 +23,7 @@ export default function LoginPage() {
 
       if (recoveryMode) {
         const { error } = await supabase.auth.resetPasswordForEmail(email, {
-          redirectTo: `${window.location.origin}/reset-password`,
+          redirectTo: "https://whatsapp-marketing-saas-nine.vercel.app/reset-password",
         });
 
         if (error) {
